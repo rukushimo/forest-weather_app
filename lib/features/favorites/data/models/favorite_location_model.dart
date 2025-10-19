@@ -7,7 +7,6 @@ class FavoriteLocationModel extends FavoriteLocation {
     required super.latitude,
     required super.longitude,
     required super.addedAt,
-    required super.name,
   });
 
   factory FavoriteLocationModel.fromJson(Map<String, dynamic> json) {
@@ -17,7 +16,6 @@ class FavoriteLocationModel extends FavoriteLocation {
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       addedAt: DateTime.parse(json['addedAt'] as String),
-      name: '',
     );
   }
 
@@ -43,7 +41,6 @@ class FavoriteLocationModel extends FavoriteLocation {
       latitude: latitude,
       longitude: longitude,
       addedAt: DateTime.now(),
-      name: '',
     );
   }
 }

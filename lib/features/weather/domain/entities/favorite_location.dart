@@ -1,3 +1,4 @@
+// lib/features/favorites/domain/entities/favorite_location.dart
 import 'package:equatable/equatable.dart';
 
 class FavoriteLocation extends Equatable {
@@ -13,7 +14,6 @@ class FavoriteLocation extends Equatable {
     required this.latitude,
     required this.longitude,
     required this.addedAt,
-    required String name,
   });
 
   @override

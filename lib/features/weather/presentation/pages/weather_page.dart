@@ -1,4 +1,3 @@
-// lib/features/weather/presentation/pages/weather_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:weather_app/features/favorites/presentation/bloc/favorite_bloc.dart';
@@ -15,8 +14,6 @@ import '../bloc/weather_event.dart';
 import '../bloc/weather_state.dart';
 import '../widgets/current_weather_card.dart';
 import '../widgets/forecast_list.dart';
-// ignore: unused_import
-import 'city_search_page.dart';
 
 class WeatherPage extends StatelessWidget {
   const WeatherPage({super.key});
@@ -57,14 +54,12 @@ class WeatherView extends StatelessWidget {
           // Search button
           IconButton(
             onPressed: () async {
-              // Navigate and wait for result
               await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const SimpleCitySearchPage(),
                 ),
               );
-              // Refresh weather when coming back
               if (context.mounted) {
                 context.read<WeatherBloc>().add(const RefreshWeather());
               }
@@ -91,10 +86,15 @@ class WeatherView extends StatelessWidget {
                   bool isFavorite = false;
                   String? cityName;
                   String? country;
+                  double? latitude;
+                  double? longitude;
 
                   if (weatherState is WeatherLoaded) {
                     cityName = weatherState.currentWeather.cityName;
                     country = weatherState.currentWeather.country;
+
+                    latitude = weatherState.currentWeather.latitude;
+                    longitude = weatherState.currentWeather.longitude;
 
                     if (favState is FavoritesLoaded) {
                       isFavorite = favState.isCurrentLocationFavorite;
@@ -102,7 +102,11 @@ class WeatherView extends StatelessWidget {
                   }
 
                   return IconButton(
-                    onPressed: weatherState is WeatherLoaded && cityName != null
+                    onPressed:
+                        weatherState is WeatherLoaded &&
+                            cityName != null &&
+                            latitude != null &&
+                            longitude != null
                         ? () {
                             if (isFavorite) {
                               context.read<FavoritesBloc>().add(
@@ -113,8 +117,8 @@ class WeatherView extends StatelessWidget {
                                 AddFavorite(
                                   cityName: cityName!,
                                   country: country ?? '',
-                                  latitude: 0.0,
-                                  longitude: 0.0,
+                                  latitude: latitude!,
+                                  longitude: longitude!,
                                 ),
                               );
                             }

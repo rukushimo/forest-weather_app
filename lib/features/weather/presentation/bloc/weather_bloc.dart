@@ -1,10 +1,7 @@
 import 'dart:developer';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// ignore: unused_import
-import 'package:dartz/dartz.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/error/failures.dart';
-// ignore: unused_import
-import '../../../../core/services/location_service.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/usecases/get_current_location.dart';
 import '../../domain/usecases/get_current_weather.dart';
@@ -26,6 +23,7 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     on<GetWeatherForCity>(_onGetWeatherForCity);
     on<GetWeatherForCoordinates>(_onGetWeatherForCoordinates);
     on<RefreshWeather>(_onRefreshWeather);
+    on<GetHourlyForecast>(_onGetHourlyForecast); // NEW
   }
 
   Future<void> _onGetWeatherForCurrentLocation(
@@ -35,7 +33,6 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     emit(const WeatherLoading());
 
     try {
-      // First get current location
       final locationResult = await getCurrentLocation(const NoParams());
 
       await locationResult.fold(
@@ -43,7 +40,6 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
           emit(WeatherError(_mapFailureToMessage(failure)));
         },
         (locationData) async {
-          // Get current weather
           final weatherParams = WeatherParams(
             latitude: locationData.latitude,
             longitude: locationData.longitude,
@@ -56,12 +52,10 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
               emit(WeatherError(_mapFailureToMessage(failure)));
             },
             (weather) async {
-              // Get forecast
               final forecastResult = await getWeatherForecast(weatherParams);
 
               forecastResult.fold(
                 (failure) {
-                  // If forecast fails, just show current weather
                   emit(WeatherLoaded(currentWeather: weather));
                 },
                 (forecast) {
@@ -86,8 +80,6 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     emit(const WeatherLoading());
 
     try {
-      // For now, just show an error message
-      // City search is handled by the search page with coordinates
       emit(const WeatherError('Please use the search feature to find cities'));
     } catch (e) {
       emit(WeatherError('Failed to get weather: $e'));
@@ -121,7 +113,6 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
         (weather) async {
           log('✅ BLoC: Got weather for ${weather.cityName}');
 
-          // Get forecast
           final forecastResult = await getWeatherForecast(weatherParams);
 
           forecastResult.fold(
@@ -146,8 +137,35 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     RefreshWeather event,
     Emitter<WeatherState> emit,
   ) async {
-    // Refresh current weather data
     add(const GetWeatherForCurrentLocation());
+  }
+
+  // NEW: Handle hourly forecast request
+  Future<void> _onGetHourlyForecast(
+    GetHourlyForecast event,
+    Emitter<WeatherState> emit,
+  ) async {
+    log(
+      '🕐 Getting hourly forecast for ${DateFormat('yyyy-MM-dd').format(event.date)}',
+    );
+
+    // Filter forecasts for the selected date
+    final dateKey = DateFormat('yyyy-MM-dd').format(event.date);
+    final hourlyForecasts = event.allForecasts.where((forecast) {
+      final forecastDateKey = DateFormat(
+        'yyyy-MM-dd',
+      ).format(forecast.dateTime);
+      return forecastDateKey == dateKey;
+    }).toList();
+
+    // Sort by time
+    hourlyForecasts.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+    log('✅ Found ${hourlyForecasts.length} hourly forecasts');
+
+    emit(
+      HourlyForecastLoaded(date: event.date, hourlyForecasts: hourlyForecasts),
+    );
   }
 
   String _mapFailureToMessage(Failure failure) {

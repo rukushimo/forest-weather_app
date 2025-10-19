@@ -12,6 +12,8 @@ class WeatherEntity extends Equatable {
   final int pressure;
   final DateTime dateTime;
   final String icon;
+  final double? latitude; // Added this
+  final double? longitude; // Add this
 
   const WeatherEntity({
     required this.cityName,
@@ -25,30 +27,24 @@ class WeatherEntity extends Equatable {
     required this.pressure,
     required this.dateTime,
     required this.icon,
+    this.latitude, // Add this
+    this.longitude, // Add this
   });
 
   @override
   List<Object?> get props => [
-        cityName,
-        country,
-        temperature,
-        description,
-        mainWeather,
-        feelsLike,
-        humidity,
-        windSpeed,
-        pressure,
-        dateTime,
-        icon,
-      ];
+    cityName,
+    country,
+    temperature,
+    description,
+    mainWeather,
+    feelsLike,
+    humidity,
+    windSpeed,
+    pressure,
+    dateTime,
+    icon,
+    latitude, // Add this
+    longitude, // Add this
+  ];
 }
-
-
-
-
-
-
-
-
-
-

@@ -1,4 +1,3 @@
-// lib/features/weather/presentation/bloc/weather_state.dart
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/forecast_entity.dart';
 import '../../domain/entities/weather_entity.dart';
@@ -45,4 +44,18 @@ class WeatherError extends WeatherState {
 
   @override
   List<Object> get props => [message];
+}
+
+// NEW STATE: Hourly forecast loaded
+class HourlyForecastLoaded extends WeatherState {
+  final DateTime date;
+  final List<WeatherEntity> hourlyForecasts;
+
+  const HourlyForecastLoaded({
+    required this.date,
+    required this.hourlyForecasts,
+  });
+
+  @override
+  List<Object> get props => [date, hourlyForecasts];
 }

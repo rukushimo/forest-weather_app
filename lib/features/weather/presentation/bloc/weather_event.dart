@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:weather_app/features/weather/domain/entities/weather_entity.dart';
 
 abstract class WeatherEvent extends Equatable {
   const WeatherEvent();
@@ -32,4 +33,15 @@ class GetWeatherForCoordinates extends WeatherEvent {
 
   @override
   List<Object> get props => [latitude, longitude];
+}
+
+// NEW EVENT: Get hourly forecast for a specific date
+class GetHourlyForecast extends WeatherEvent {
+  final DateTime date;
+  final List<WeatherEntity> allForecasts;
+
+  const GetHourlyForecast({required this.date, required this.allForecasts});
+
+  @override
+  List<Object> get props => [date, allForecasts];
 }

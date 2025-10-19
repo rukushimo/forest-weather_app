@@ -1,4 +1,3 @@
-// lib/features/weather/data/models/weather_model.dart
 import '../../domain/entities/weather_entity.dart';
 
 class WeatherModel extends WeatherEntity {
@@ -14,8 +13,8 @@ class WeatherModel extends WeatherEntity {
     required super.pressure,
     required super.dateTime,
     required super.icon,
-    required latitude,
-    required longitude,
+    super.latitude,
+    super.longitude,
   });
 
   factory WeatherModel.fromJson(Map<String, dynamic> json) {
@@ -31,16 +30,18 @@ class WeatherModel extends WeatherEntity {
       pressure: json['main']['pressure'] ?? 0,
       dateTime: DateTime.fromMillisecondsSinceEpoch((json['dt'] as int) * 1000),
       icon: json['weather'][0]['icon'] ?? '',
-      latitude: null,
-      longitude: null,
+      latitude: json['coord']?['lat']?.toDouble(),
+      longitude: json['coord']?['lon']?.toDouble(),
     );
   }
 
   factory WeatherModel.fromForecastJson(
     Map<String, dynamic> json,
     String cityName,
-    String country,
-  ) {
+    String country, {
+    double? latitude,
+    double? longitude,
+  }) {
     return WeatherModel(
       cityName: cityName,
       country: country,
@@ -53,19 +54,16 @@ class WeatherModel extends WeatherEntity {
       pressure: json['main']['pressure'] ?? 0,
       dateTime: DateTime.fromMillisecondsSinceEpoch((json['dt'] as int) * 1000),
       icon: json['weather'][0]['icon'] ?? '',
-      latitude: null,
-      longitude: null,
+      latitude: latitude,
+      longitude: longitude,
     );
   }
-
-  get latitude => null;
-
-  get longitude => null;
 
   Map<String, dynamic> toJson() {
     return {
       'name': cityName,
       'sys': {'country': country},
+      'coord': {'lat': latitude, 'lon': longitude},
       'main': {
         'temp': temperature,
         'feels_like': feelsLike,

@@ -34,7 +34,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
   List<LocationEntity> _searchResults = [];
   String? _errorMessage;
 
-  // Store current location for favorites
   LocationEntity? _currentLocation;
 
   Future<void> _searchCities(String query) async {
@@ -75,16 +74,27 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
             _isSearching = false;
           });
         } else {
+          // Remove duplicate locations based on coordinates (rounded to 2 decimals)
+          final uniqueLocations = <String, LocationEntity>{};
+
+          for (var json in data) {
+            final location = LocationModel.fromJson(
+              json as Map<String, dynamic>,
+            );
+            final key =
+                '${location.latitude.toStringAsFixed(2)}_${location.longitude.toStringAsFixed(2)}';
+
+            // Only add if we don't have this location already
+            if (!uniqueLocations.containsKey(key)) {
+              uniqueLocations[key] = location;
+            }
+          }
+
           setState(() {
-            _searchResults = data
-                .map(
-                  (json) =>
-                      LocationModel.fromJson(json as Map<String, dynamic>),
-                )
-                .toList();
+            _searchResults = uniqueLocations.values.toList();
             _isSearching = false;
           });
-          debugPrint('✅ Found ${_searchResults.length} cities');
+          debugPrint('✅ Found ${_searchResults.length} unique cities');
         }
       }
     } catch (e) {
@@ -102,6 +112,19 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
       _showSearch = false;
       _currentLocation = location;
     });
+  }
+
+  String _getLocationDisplayName(LocationEntity location) {
+    // Build a clear, unique name
+    final parts = <String>[location.name];
+
+    if (location.state != null && location.state!.isNotEmpty) {
+      parts.add(location.state!);
+    }
+
+    parts.add(location.country);
+
+    return parts.join(', ');
   }
 
   @override
@@ -133,7 +156,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
           ),
           actions: [
             if (!_showSearch) ...[
-              // Search button
               IconButton(
                 icon: const Icon(Icons.search, color: Colors.white),
                 onPressed: () {
@@ -145,7 +167,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                 },
                 tooltip: 'Search again',
               ),
-              // Favorites list button
               IconButton(
                 onPressed: () {
                   Navigator.push(
@@ -158,7 +179,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                 icon: const Icon(Icons.list, color: Colors.white),
                 tooltip: 'View Favorites',
               ),
-              // Favorite heart button
               BlocBuilder<WeatherBloc, WeatherState>(
                 builder: (context, weatherState) {
                   return BlocBuilder<FavoritesBloc, FavoritesState>(
@@ -212,7 +232,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                   );
                 },
               ),
-              // Refresh button
               IconButton(
                 onPressed: () {
                   if (_currentLocation != null) {
@@ -246,7 +265,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
       ),
       child: Column(
         children: [
-          // Search field
           Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -273,7 +291,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                       border: InputBorder.none,
                     ),
                     onChanged: (query) {
-                      // Debounce search
                       Future.delayed(const Duration(milliseconds: 500), () {
                         if (_searchController.text == query) {
                           _searchCities(query);
@@ -297,7 +314,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
             ),
           ),
 
-          // Info text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
@@ -306,7 +322,7 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                   : _isSearching
                   ? 'Searching...'
                   : _searchResults.isNotEmpty
-                  ? 'Found ${_searchResults.length} ${_searchResults.length == 1 ? 'city' : 'cities'}'
+                  ? 'Found ${_searchResults.length} ${_searchResults.length == 1 ? 'location' : 'locations'}'
                   : '',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
@@ -316,7 +332,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
           ),
           const SizedBox(height: 8),
 
-          // Results
           Expanded(
             child: Builder(
               builder: (builderContext) {
@@ -462,6 +477,8 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final location = _searchResults[index];
+        final displayName = _getLocationDisplayName(location);
+
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           color: const Color(0xFF1a3409).withValues(alpha: 0.9),
@@ -473,6 +490,10 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
             ),
           ),
           child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
             leading: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -480,50 +501,40 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
-                Icons.location_city,
+                Icons.location_on,
                 color: Color(0xFF90ee90),
                 size: 26,
               ),
             ),
             title: Text(
-              location.name,
+              displayName,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 17,
+                fontSize: 16,
               ),
             ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  location.state != null
-                      ? '${location.state}, ${location.country}'
-                      : location.country,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
-                  ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${location.latitude.toStringAsFixed(4)}°, ${location.longitude.toStringAsFixed(4)}°',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Lat: ${location.latitude.toStringAsFixed(2)}, Lon: ${location.longitude.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
+              ),
             ),
-            trailing: const Icon(
+            trailing: Icon(
               Icons.arrow_forward_ios,
-              color: Color(0xFF90ee90),
+              color: const Color(0xFF90ee90).withValues(alpha: 0.7),
               size: 18,
             ),
             onTap: () {
-              debugPrint('🎯 Loading weather for: ${location.name}');
+              debugPrint('🎯 Loading weather for: $displayName');
+              debugPrint(
+                '📍 Coordinates: ${location.latitude}, ${location.longitude}',
+              );
               _loadWeatherForLocation(location);
               builderContext.read<WeatherBloc>().add(
                 GetWeatherForCoordinates(location.latitude, location.longitude),
