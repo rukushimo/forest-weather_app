@@ -7,15 +7,16 @@ class WeatherApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Forest Weather App',
+      title: 'My Weather App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF2d5016),
-          secondary: Color(0xFF90ee90),
+          primary: Color(0xFF2D5016), // main green color
+          secondary: Color(0xFF90EE90), // light green
         ),
       ),
+
       home: const WeatherPage(),
     );
   }

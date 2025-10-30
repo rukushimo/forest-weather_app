@@ -1,4 +1,3 @@
-// lib/features/weather/presentation/pages/forest_weather_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/dependency_injection/injection_container.dart' as di;
@@ -62,9 +61,7 @@ class ForestWeatherView extends StatelessWidget {
         ],
       ),
 
-      // ✅ Replaced body with background + overlay
       body: Container(
-        // Forest background image
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage('assets/images/forest_background.png'),

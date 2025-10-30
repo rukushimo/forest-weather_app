@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
@@ -21,12 +19,9 @@ import '../../features/favorites/data/datasources/favorites_local_data_source.da
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  log('🔧 Initializing dependency injection...');
-
   //! Features - Weather
   // Bloc
   sl.registerFactory(() {
-    log('📦 Creating WeatherBloc');
     return WeatherBloc(
       getCurrentWeather: sl(),
       getWeatherForecast: sl(),
@@ -36,7 +31,6 @@ Future<void> init() async {
 
   // SearchBloc
   sl.registerFactory(() {
-    log('📦 Creating SearchBloc');
     return SearchBloc(remoteDataSource: sl());
   });
 
@@ -58,7 +52,6 @@ Future<void> init() async {
   //! Features - Favorites
   // Bloc
   sl.registerFactory(() {
-    log('📦 Creating FavoritesBloc');
     return FavoritesBloc(localDataSource: sl());
   });
 
@@ -76,6 +69,4 @@ Future<void> init() async {
   sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => Dio());
   sl.registerLazySingleton(() => Connectivity());
-
-  log('✅ Dependency injection initialized!');
 }

@@ -1,4 +1,4 @@
-import 'dart:developer';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/error/failures.dart';
@@ -23,9 +23,10 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     on<GetWeatherForCity>(_onGetWeatherForCity);
     on<GetWeatherForCoordinates>(_onGetWeatherForCoordinates);
     on<RefreshWeather>(_onRefreshWeather);
-    on<GetHourlyForecast>(_onGetHourlyForecast); // NEW
+    on<GetHourlyForecast>(_onGetHourlyForecast);
   }
 
+  /// Fetches weather data using the user's current location.
   Future<void> _onGetWeatherForCurrentLocation(
     GetWeatherForCurrentLocation event,
     Emitter<WeatherState> emit,
@@ -36,103 +37,87 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
       final locationResult = await getCurrentLocation(const NoParams());
 
       await locationResult.fold(
-        (failure) async {
-          emit(WeatherError(_mapFailureToMessage(failure)));
-        },
+        (failure) async => emit(WeatherError(_mapFailureToMessage(failure))),
         (locationData) async {
-          final weatherParams = WeatherParams(
+          final params = WeatherParams(
             latitude: locationData.latitude,
             longitude: locationData.longitude,
           );
 
-          final weatherResult = await getCurrentWeather(weatherParams);
+          final weatherResult = await getCurrentWeather(params);
 
           await weatherResult.fold(
-            (failure) async {
-              emit(WeatherError(_mapFailureToMessage(failure)));
-            },
+            (failure) async =>
+                emit(WeatherError(_mapFailureToMessage(failure))),
             (weather) async {
-              final forecastResult = await getWeatherForecast(weatherParams);
+              final forecastResult = await getWeatherForecast(params);
 
               forecastResult.fold(
-                (failure) {
-                  emit(WeatherLoaded(currentWeather: weather));
-                },
-                (forecast) {
-                  emit(
-                    WeatherLoaded(currentWeather: weather, forecast: forecast),
-                  );
-                },
+                (failure) => emit(WeatherLoaded(currentWeather: weather)),
+                (forecast) => emit(
+                  WeatherLoaded(currentWeather: weather, forecast: forecast),
+                ),
               );
             },
           );
         },
       );
     } catch (e) {
-      emit(WeatherError('Unexpected error occurred: $e'));
+      debugPrint('WeatherBloc error: $e');
+      emit(const WeatherError('Unexpected error occurred.'));
     }
   }
 
+  // Placeholder for direct city-based search.
   Future<void> _onGetWeatherForCity(
     GetWeatherForCity event,
     Emitter<WeatherState> emit,
   ) async {
     emit(const WeatherLoading());
-
-    try {
-      emit(const WeatherError('Please use the search feature to find cities'));
-    } catch (e) {
-      emit(WeatherError('Failed to get weather: $e'));
-    }
+    emit(const WeatherError('Please use the search feature to find cities.'));
   }
 
+  // Fetches weather data for given latitude and longitude coordinates.
   Future<void> _onGetWeatherForCoordinates(
     GetWeatherForCoordinates event,
     Emitter<WeatherState> emit,
   ) async {
-    log('🎯 BLoC: Getting weather for coordinates');
-    log('📍 Lat: ${event.latitude}, Lon: ${event.longitude}');
-
     emit(const WeatherLoading());
 
     try {
-      final weatherParams = WeatherParams(
+      final params = WeatherParams(
         latitude: event.latitude,
         longitude: event.longitude,
       );
 
-      log('📞 BLoC: Calling getCurrentWeather use case...');
-
-      final weatherResult = await getCurrentWeather(weatherParams);
+      final weatherResult = await getCurrentWeather(params);
 
       await weatherResult.fold(
         (failure) async {
-          log('❌ BLoC: Failed - ${_mapFailureToMessage(failure)}');
+          debugPrint('Weather fetch failed: $failure');
           emit(WeatherError(_mapFailureToMessage(failure)));
         },
         (weather) async {
-          log('✅ BLoC: Got weather for ${weather.cityName}');
-
-          final forecastResult = await getWeatherForecast(weatherParams);
+          final forecastResult = await getWeatherForecast(params);
 
           forecastResult.fold(
             (failure) {
-              log('⚠️ BLoC: Got weather but forecast failed');
+              debugPrint('Forecast unavailable: $failure');
               emit(WeatherLoaded(currentWeather: weather));
             },
             (forecast) {
-              log('✅ BLoC: Got weather and forecast');
               emit(WeatherLoaded(currentWeather: weather, forecast: forecast));
             },
           );
         },
       );
     } catch (e) {
-      log('❌ BLoC: Exception - $e');
-      emit(WeatherError('Failed to get weather: $e'));
+      debugPrint('Exception while fetching weather: $e');
+      emit(const WeatherError('Unable to fetch weather data.'));
     }
   }
 
+  // Refreshes the current weather view by fetching the latest data.
   Future<void> _onRefreshWeather(
     RefreshWeather event,
     Emitter<WeatherState> emit,
@@ -140,44 +125,37 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
     add(const GetWeatherForCurrentLocation());
   }
 
-  // NEW: Handle hourly forecast request
+  // Filters and loads hourly forecasts for a specific date.
   Future<void> _onGetHourlyForecast(
     GetHourlyForecast event,
     Emitter<WeatherState> emit,
   ) async {
-    log(
-      '🕐 Getting hourly forecast for ${DateFormat('yyyy-MM-dd').format(event.date)}',
-    );
-
-    // Filter forecasts for the selected date
     final dateKey = DateFormat('yyyy-MM-dd').format(event.date);
-    final hourlyForecasts = event.allForecasts.where((forecast) {
-      final forecastDateKey = DateFormat(
-        'yyyy-MM-dd',
-      ).format(forecast.dateTime);
-      return forecastDateKey == dateKey;
-    }).toList();
 
-    // Sort by time
-    hourlyForecasts.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-
-    log('✅ Found ${hourlyForecasts.length} hourly forecasts');
+    final hourlyForecasts =
+        event.allForecasts
+            .where(
+              (f) => DateFormat('yyyy-MM-dd').format(f.dateTime) == dateKey,
+            )
+            .toList()
+          ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
     emit(
       HourlyForecastLoaded(date: event.date, hourlyForecasts: hourlyForecasts),
     );
   }
 
+  // Maps domain-level failures into readable error messages.
   String _mapFailureToMessage(Failure failure) {
     switch (failure.runtimeType) {
       case const (ServerFailure):
         return (failure as ServerFailure).message;
       case const (ConnectionFailure):
-        return 'Please check your internet connection';
+        return 'Please check your internet connection.';
       case const (LocationFailure):
         return (failure as LocationFailure).message;
       default:
-        return 'Something went wrong';
+        return 'Something went wrong.';
     }
   }
 }

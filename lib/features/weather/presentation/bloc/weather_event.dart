@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:weather_app/features/weather/domain/entities/weather_entity.dart';
 
+// Base class for all weather-related events.
 abstract class WeatherEvent extends Equatable {
   const WeatherEvent();
 
@@ -8,10 +9,12 @@ abstract class WeatherEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+// Fetches weather data based on the user's current location.
 class GetWeatherForCurrentLocation extends WeatherEvent {
   const GetWeatherForCurrentLocation();
 }
 
+// Fetches weather data for a specific city.
 class GetWeatherForCity extends WeatherEvent {
   final String cityName;
 
@@ -21,10 +24,12 @@ class GetWeatherForCity extends WeatherEvent {
   List<Object> get props => [cityName];
 }
 
+// Refreshes the currently displayed weather data.
 class RefreshWeather extends WeatherEvent {
   const RefreshWeather();
 }
 
+// Fetches weather data using latitude and longitude coordinates.
 class GetWeatherForCoordinates extends WeatherEvent {
   final double latitude;
   final double longitude;
@@ -35,7 +40,7 @@ class GetWeatherForCoordinates extends WeatherEvent {
   List<Object> get props => [latitude, longitude];
 }
 
-// NEW EVENT: Get hourly forecast for a specific date
+// Retrieves hourly forecasts for a specific date from available data.
 class GetHourlyForecast extends WeatherEvent {
   final DateTime date;
   final List<WeatherEntity> allForecasts;

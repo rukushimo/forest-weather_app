@@ -1,4 +1,3 @@
-// lib/features/weather/presentation/bloc/search_bloc.dart
 import 'dart:async';
 import 'dart:developer';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,34 +18,33 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     SearchCities event,
     Emitter<SearchState> emit,
   ) async {
-    log('🔍 SearchBloc created and working!');
-
     _debounceTimer?.cancel();
 
-    if (event.query.isEmpty) {
+    final query = event.query.trim();
+
+    // Reset the state if query is empty
+    if (query.isEmpty) {
       emit(const SearchInitial());
       return;
     }
 
-    if (event.query.length < 2) {
-      return;
-    }
+    // Skip very short queries to avoid unnecessary API calls
+    if (query.length < 2) return;
 
+    // Debounce to prevent rapid repeated searches
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       emit(const SearchLoading());
 
       try {
-        log('📞 Calling searchLocations...');
-        final locations = await remoteDataSource.searchLocations(event.query);
+        final locations = await remoteDataSource.searchLocations(query);
 
         if (locations.isEmpty) {
           emit(const SearchEmpty());
         } else {
-          log('✅ Found ${locations.length} cities');
           emit(SearchLoaded(locations));
         }
-      } catch (e) {
-        log('❌ Search error: $e');
+      } catch (e, stackTrace) {
+        log('Search error: $e', stackTrace: stackTrace);
         emit(SearchError('Failed to search: $e'));
       }
     });

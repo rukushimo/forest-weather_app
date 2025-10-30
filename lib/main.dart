@@ -6,13 +6,10 @@ import 'app/app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  debugPrint('🚀 Starting app...');
-
-  // Initialize dependency injection
+  // Set up things before the app starts
   await di.init();
 
-  debugPrint('✅ DI complete, starting app!');
-
+  // Make status bar blend with the app
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

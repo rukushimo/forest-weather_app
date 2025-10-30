@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:weather_app/features/favorites/presentation/bloc/favorite_bloc.dart';
-import 'package:weather_app/features/favorites/presentation/bloc/favorite_event.dart';
-import 'package:weather_app/features/favorites/presentation/bloc/favorite_state.dart';
-import 'package:weather_app/features/favorites/presentation/pages/favorites_pages.dart';
-import 'package:weather_app/features/weather/presentation/pages/simple_city_search_page.dart';
 import '../../../../core/dependency_injection/injection_container.dart' as di;
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/weather_background.dart';
+import '../../../favorites/presentation/bloc/favorite_bloc.dart';
+import '../../../favorites/presentation/bloc/favorite_event.dart';
+import '../../../favorites/presentation/bloc/favorite_state.dart';
+import '../../../favorites/presentation/pages/favorites_pages.dart';
 import '../bloc/weather_bloc.dart';
 import '../bloc/weather_event.dart';
 import '../bloc/weather_state.dart';
 import '../widgets/current_weather_card.dart';
 import '../widgets/forecast_list.dart';
+import 'simple_city_search_page.dart';
 
 class WeatherPage extends StatelessWidget {
   const WeatherPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // provide both weather and favorites bloc
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (context) =>
+          create: (_) =>
               di.sl<WeatherBloc>()..add(const GetWeatherForCurrentLocation()),
         ),
         BlocProvider(
-          create: (context) =>
-              di.sl<FavoritesBloc>()..add(const LoadFavorites()),
+          create: (_) => di.sl<FavoritesBloc>()..add(const LoadFavorites()),
         ),
       ],
       child: const WeatherView(),
@@ -51,98 +51,24 @@ class WeatherView extends StatelessWidget {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
-          // Search button
+          // search city
           IconButton(
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SimpleCitySearchPage(),
-                ),
-              );
-              if (context.mounted) {
-                context.read<WeatherBloc>().add(const RefreshWeather());
-              }
-            },
+            onPressed: () => _goToSearch(context),
             icon: const Icon(Icons.search, color: Colors.white),
-            tooltip: 'Search City',
           ),
-          // Favorites list button
+          // open favorites list
           IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const FavoritesPage()),
-              );
-            },
+            onPressed: () => _goToFavorites(context),
             icon: const Icon(Icons.list, color: Colors.white),
-            tooltip: 'View Favorites',
           ),
-          // Favorite heart button
-          BlocBuilder<WeatherBloc, WeatherState>(
-            builder: (context, weatherState) {
-              return BlocBuilder<FavoritesBloc, FavoritesState>(
-                builder: (context, favState) {
-                  bool isFavorite = false;
-                  String? cityName;
-                  String? country;
-                  double? latitude;
-                  double? longitude;
-
-                  if (weatherState is WeatherLoaded) {
-                    cityName = weatherState.currentWeather.cityName;
-                    country = weatherState.currentWeather.country;
-
-                    latitude = weatherState.currentWeather.latitude;
-                    longitude = weatherState.currentWeather.longitude;
-
-                    if (favState is FavoritesLoaded) {
-                      isFavorite = favState.isCurrentLocationFavorite;
-                    }
-                  }
-
-                  return IconButton(
-                    onPressed:
-                        weatherState is WeatherLoaded &&
-                            cityName != null &&
-                            latitude != null &&
-                            longitude != null
-                        ? () {
-                            if (isFavorite) {
-                              context.read<FavoritesBloc>().add(
-                                RemoveFavorite(cityName!),
-                              );
-                            } else {
-                              context.read<FavoritesBloc>().add(
-                                AddFavorite(
-                                  cityName: cityName!,
-                                  country: country ?? '',
-                                  latitude: latitude!,
-                                  longitude: longitude!,
-                                ),
-                              );
-                            }
-                          }
-                        : null,
-                    icon: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.red : Colors.white,
-                    ),
-                    tooltip: isFavorite
-                        ? 'Remove from favorites'
-                        : 'Add to favorites',
-                  );
-                },
-              );
-            },
-          ),
-          // Refresh button
+          // add/remove favorites
+          _favoriteButton(),
+          // refresh current location weather
           IconButton(
             onPressed: () {
               context.read<WeatherBloc>().add(const RefreshWeather());
             },
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh Weather',
           ),
         ],
       ),
@@ -181,20 +107,92 @@ class WeatherView extends StatelessWidget {
                 },
               ),
             );
-          }
-
-          return const WeatherBackground(
-            weatherCondition: 'default',
-            child: Center(
-              child: Text(
-                'Welcome to Weather App!\nTap refresh to get started.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 18),
+          } else {
+            return const WeatherBackground(
+              weatherCondition: 'default',
+              child: Center(
+                child: Text(
+                  'Welcome to Weather App!\nTap refresh to get started.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
               ),
-            ),
-          );
+            );
+          }
         },
       ),
     );
+  }
+
+  Future<void> _goToSearch(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SimpleCitySearchPage()),
+    );
+    if (context.mounted) {
+      context.read<WeatherBloc>().add(const RefreshWeather());
+    }
+  }
+
+  void _goToFavorites(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const FavoritesPage()),
+    );
+  }
+
+  Widget _favoriteButton() {
+    return BlocBuilder<WeatherBloc, WeatherState>(
+      builder: (context, weatherState) {
+        return BlocBuilder<FavoritesBloc, FavoritesState>(
+          builder: (context, favState) {
+            final isFav = _isFavorite(weatherState, favState);
+            final canFav = _canFavorite(weatherState);
+
+            return IconButton(
+              onPressed: canFav
+                  ? () => _toggleFavorite(context, weatherState, isFav)
+                  : null,
+              icon: Icon(
+                isFav ? Icons.favorite : Icons.favorite_border,
+                color: isFav ? Colors.red : Colors.white,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  bool _isFavorite(WeatherState weatherState, FavoritesState favState) {
+    if (weatherState is! WeatherLoaded || favState is! FavoritesLoaded) {
+      return false;
+    }
+    return favState.isCurrentLocationFavorite;
+  }
+
+  bool _canFavorite(WeatherState state) {
+    if (state is! WeatherLoaded) return false;
+    final weather = state.currentWeather;
+    return weather.latitude != null && weather.longitude != null;
+  }
+
+  void _toggleFavorite(BuildContext context, WeatherState state, bool isFav) {
+    if (state is! WeatherLoaded) return;
+    final weather = state.currentWeather;
+    final favBloc = context.read<FavoritesBloc>();
+
+    if (isFav) {
+      favBloc.add(RemoveFavorite(weather.cityName));
+    } else {
+      favBloc.add(
+        AddFavorite(
+          cityName: weather.cityName,
+          country: weather.country,
+          latitude: weather.latitude!,
+          longitude: weather.longitude!,
+        ),
+      );
+    }
   }
 }

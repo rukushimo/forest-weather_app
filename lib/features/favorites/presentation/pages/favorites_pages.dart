@@ -10,6 +10,7 @@ import '../bloc/favorite_bloc.dart';
 import '../bloc/favorite_event.dart';
 import '../bloc/favorite_state.dart';
 
+// This page shows the user's saved favorite locations
 class FavoritesPage extends StatelessWidget {
   const FavoritesPage({super.key});
 
@@ -59,6 +60,8 @@ class FavoritesView extends StatelessWidget {
               }
               return _buildFavoritesList(context, state);
             } else if (state is FavoritesError) {
+              //  print error to debug
+              debugPrint('Error loading favorites: ${state.message}');
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -78,7 +81,7 @@ class FavoritesView extends StatelessWidget {
                 ),
               );
             }
-            return const SizedBox();
+            return const SizedBox(); // fallback
           },
         ),
       ),
@@ -101,14 +104,14 @@ class FavoritesView extends StatelessWidget {
             const Text(
               'No Favorites Yet',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Start adding your favorite locations by tapping the heart icon on the weather page!',
+              'You can add favorites by tapping the heart icon on the main page.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white.withValues(alpha: .8),
@@ -140,19 +143,19 @@ class FavoritesView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       itemCount: state.favorites.length,
       itemBuilder: (context, index) {
-        final favorite = state.favorites[index];
+        final fav = state.favorites[index];
         return FavoriteWeatherCard(
-          cityName: favorite.cityName,
-          country: favorite.country,
-          latitude: favorite.latitude,
-          longitude: favorite.longitude,
-          onDelete: () => _showDeleteConfirmation(context, favorite.cityName),
+          cityName: fav.cityName,
+          country: fav.country,
+          latitude: fav.latitude,
+          longitude: fav.longitude,
+          onDelete: () => _confirmDelete(context, fav.cityName),
         );
       },
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, String cityName) {
+  void _confirmDelete(BuildContext context, String cityName) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -163,7 +166,7 @@ class FavoritesView extends StatelessWidget {
           style: TextStyle(color: Colors.white),
         ),
         content: Text(
-          'Are you sure you want to remove $cityName from your favorites?',
+          'Are you sure you want to remove $cityName?',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -197,7 +200,6 @@ class FavoritesView extends StatelessWidget {
   }
 }
 
-// Separate widget that fetches and displays weather for each favorite
 class FavoriteWeatherCard extends StatefulWidget {
   final String cityName;
   final String country;
@@ -219,9 +221,9 @@ class FavoriteWeatherCard extends StatefulWidget {
 }
 
 class _FavoriteWeatherCardState extends State<FavoriteWeatherCard> {
-  WeatherEntity? _weather;
-  bool _isLoading = true;
-  String? _error;
+  WeatherEntity? weatherData;
+  bool loading = true;
+  String? errorText;
 
   @override
   void initState() {
@@ -231,36 +233,32 @@ class _FavoriteWeatherCardState extends State<FavoriteWeatherCard> {
 
   Future<void> _loadWeather() async {
     try {
-      final getCurrentWeather = di.sl<GetCurrentWeather>();
-      final result = await getCurrentWeather(
+      final getWeather = di.sl<GetCurrentWeather>();
+      final result = await getWeather(
         WeatherParams(latitude: widget.latitude, longitude: widget.longitude),
       );
 
       result.fold(
         (failure) {
-          if (mounted) {
-            setState(() {
-              _error = 'Failed to load';
-              _isLoading = false;
-            });
-          }
+          debugPrint('Failed to load weather for ${widget.cityName}');
+          setState(() {
+            errorText = 'Failed to load weather data';
+            loading = false;
+          });
         },
         (weather) {
-          if (mounted) {
-            setState(() {
-              _weather = weather;
-              _isLoading = false;
-            });
-          }
+          setState(() {
+            weatherData = weather;
+            loading = false;
+          });
         },
       );
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = 'Error';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        errorText = 'Something went wrong';
+        loading = false;
+      });
+      debugPrint('Weather load error: $e');
     }
   }
 
@@ -278,7 +276,7 @@ class _FavoriteWeatherCardState extends State<FavoriteWeatherCard> {
       ),
       child: InkWell(
         onTap: () {
-          // Navigate to full weather page with these exact coordinates
+          // not perfect navigation but works fine
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -300,210 +298,79 @@ class _FavoriteWeatherCardState extends State<FavoriteWeatherCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with city name and delete button
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF90ee90).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.location_city,
-                      color: Color(0xFF90ee90),
-                      size: 24,
-                    ),
+                  const Icon(
+                    Icons.location_city,
+                    color: Color(0xFF90ee90),
+                    size: 28,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.cityName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          widget.country,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      widget.cityName,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                     onPressed: widget.onDelete,
-                    tooltip: 'Remove',
                   ),
                 ],
               ),
-
-              const SizedBox(height: 16),
-
-              // Weather info
-              if (_isLoading)
+              const SizedBox(height: 10),
+              if (loading)
                 const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF90ee90),
-                      strokeWidth: 2,
-                    ),
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF90ee90),
+                    strokeWidth: 2,
                   ),
                 )
-              else if (_error != null)
-                Center(
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 14,
-                    ),
-                  ),
-                )
-              else if (_weather != null)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              else if (errorText != null)
+                Text(errorText!, style: const TextStyle(color: Colors.white70))
+              else if (weatherData != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Weather icon and description
-                    Expanded(
-                      child: Row(
-                        children: [
-                          WeatherIcon(iconCode: _weather!.icon, size: 50),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _weather!.description
-                                  .split(' ')
-                                  .map(
-                                    (word) =>
-                                        word[0].toUpperCase() +
-                                        word.substring(1),
-                                  )
-                                  .join(' '),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Temperature
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    Row(
                       children: [
+                        WeatherIcon(iconCode: weatherData!.icon, size: 40),
+                        const SizedBox(width: 10),
                         Text(
-                          '${_weather!.temperature.round()}°C',
+                          weatherData!.description,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Feels ${_weather!.feelsLike.round()}°',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 12,
+                            fontSize: 14,
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-
-              // Additional weather details
-              if (_weather != null) ...[
-                const SizedBox(height: 12),
-                const Divider(
-                  color: Color(0xFF90ee90),
-                  thickness: 0.5,
-                  height: 1,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildWeatherDetail(
-                      Icons.water_drop,
-                      '${_weather!.humidity}%',
-                      'Humidity',
-                    ),
-                    _buildWeatherDetail(
-                      Icons.air,
-                      '${_weather!.windSpeed.toStringAsFixed(1)} m/s',
-                      'Wind',
-                    ),
-                    _buildWeatherDetail(
-                      Icons.compress,
-                      '${_weather!.pressure} hPa',
-                      'Pressure',
-                    ),
-                  ],
-                ),
-              ],
-
-              // Tap to view full details hint
-              const SizedBox(height: 12),
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+                    const SizedBox(height: 10),
                     Text(
-                      'Tap to view full forecast',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward,
-                      size: 12,
-                      color: Colors.white.withValues(alpha: 0.6),
+                      '${weatherData!.temperature.round()}°C (feels like ${weatherData!.feelsLike.round()}°)',
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ],
+                ),
+              const SizedBox(height: 10),
+              Center(
+                child: Text(
+                  'Tap to view full forecast →',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildWeatherDetail(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: const Color(0xFF90ee90), size: 20),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.6),
-            fontSize: 11,
-          ),
-        ),
-      ],
     );
   }
 }

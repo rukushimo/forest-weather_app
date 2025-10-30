@@ -1,16 +1,16 @@
 import 'package:dartz/dartz.dart';
 import 'package:geolocator/geolocator.dart';
-// ignore: unused_import
-import 'package:permission_handler/permission_handler.dart';
 import '../error/failures.dart';
 
+// Location data class to store lat and long
 class LocationData {
-  final double latitude;
-  final double longitude;
+  double latitude;
+  double longitude;
 
   LocationData({required this.latitude, required this.longitude});
 }
 
+// abstract class for location service
 abstract class LocationService {
   Future<Either<Failure, LocationData>> getCurrentLocation();
   Future<bool> isLocationServiceEnabled();
@@ -18,12 +18,14 @@ abstract class LocationService {
   Future<bool> requestLocationPermission();
 }
 
+// implementation of location service
 class LocationServiceImpl implements LocationService {
+  // get current location method
   @override
   Future<Either<Failure, LocationData>> getCurrentLocation() async {
     try {
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      // first check if location is enabled on device
+      var serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         return const Left(
           LocationFailure(
@@ -32,10 +34,13 @@ class LocationServiceImpl implements LocationService {
         );
       }
 
-      // Check location permissions
+      // now check if we have permission
       LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
+        // ask for permission
         permission = await Geolocator.requestPermission();
+
         if (permission == LocationPermission.denied) {
           return const Left(
             LocationFailure(
@@ -45,6 +50,7 @@ class LocationServiceImpl implements LocationService {
         }
       }
 
+      // check if permission is denied forever
       if (permission == LocationPermission.deniedForever) {
         return const Left(
           LocationFailure(
@@ -53,39 +59,54 @@ class LocationServiceImpl implements LocationService {
         );
       }
 
-      // Get current position
+      // if everything is okay, get the position
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
-        timeLimit: const Duration(seconds: 10),
+        desiredAccuracy: LocationAccuracy.high,
       );
 
-      return Right(
-        LocationData(
-          latitude: position.latitude,
-          longitude: position.longitude,
-        ),
+      // create location data object
+      LocationData data = LocationData(
+        latitude: position.latitude,
+        longitude: position.longitude,
       );
+
+      return Right(data);
     } catch (e) {
+      // if something goes wrong return error
       return Left(LocationFailure('Failed to get location: $e'));
     }
   }
 
+  // check if location service is enabled
   @override
   Future<bool> isLocationServiceEnabled() async {
-    return await Geolocator.isLocationServiceEnabled();
+    bool enabled = await Geolocator.isLocationServiceEnabled();
+    return enabled;
   }
 
+  // check if app has location permission
   @override
   Future<bool> hasLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
-    return permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
+
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
+  // request location permission from user
   @override
   Future<bool> requestLocationPermission() async {
     LocationPermission permission = await Geolocator.requestPermission();
-    return permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
+
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      return true;
+    }
+
+    return false;
   }
 }

@@ -26,96 +26,98 @@ class SimpleCitySearchPage extends StatefulWidget {
 }
 
 class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
-  final TextEditingController _searchController = TextEditingController();
-  final Dio _dio = Dio();
+  // Controller for the search text field
+  final TextEditingController searchController = TextEditingController();
+  final Dio dio = Dio();
 
-  bool _showSearch = true;
-  bool _isSearching = false;
-  List<LocationEntity> _searchResults = [];
-  String? _errorMessage;
+  // Variables to track state
+  bool showSearchScreen = true;
+  bool isSearching = false;
+  List<LocationEntity> searchResults = [];
+  String? errorMessage;
+  LocationEntity? selectedLocation;
 
-  LocationEntity? _currentLocation;
-
-  Future<void> _searchCities(String query) async {
-    if (query.length < 2) {
+  // Search for cities using the API
+  Future<void> searchForCities(String cityName) async {
+    // Don't search if user typed less than 2 letters
+    if (cityName.length < 2) {
       setState(() {
-        _searchResults = [];
-        _errorMessage = null;
+        searchResults = [];
+        errorMessage = null;
       });
       return;
     }
 
+    // Show loading
     setState(() {
-      _isSearching = true;
-      _errorMessage = null;
+      isSearching = true;
+      errorMessage = null;
     });
 
     try {
-      debugPrint('🔍 Searching for: $query');
+      debugPrint("Searching for: $cityName");
 
-      final response = await _dio.get(
+      // Call the weather API
+      final response = await dio.get(
         '${ApiConstants.geocodingBaseUrl}${ApiConstants.geocodingDirectEndpoint}',
         queryParameters: {
-          'q': query,
+          'q': cityName,
           'limit': 10,
           'appid': ApiConstants.apiKey,
         },
       );
 
-      debugPrint('✅ Search response: ${response.statusCode}');
-
+      // Check if request was successful
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
+        final data = response.data as List<dynamic>;
 
+        // No results found
         if (data.isEmpty) {
           setState(() {
-            _searchResults = [];
-            _errorMessage = 'No cities found for "$query"';
-            _isSearching = false;
+            searchResults = [];
+            errorMessage = 'No cities found for "$cityName"';
+            isSearching = false;
           });
         } else {
-          // Remove duplicate locations based on coordinates (rounded to 2 decimals)
+          // Remove duplicate locations
           final uniqueLocations = <String, LocationEntity>{};
 
           for (var json in data) {
-            final location = LocationModel.fromJson(
-              json as Map<String, dynamic>,
-            );
+            final location = LocationModel.fromJson(json);
             final key =
                 '${location.latitude.toStringAsFixed(2)}_${location.longitude.toStringAsFixed(2)}';
 
-            // Only add if we don't have this location already
             if (!uniqueLocations.containsKey(key)) {
               uniqueLocations[key] = location;
             }
           }
 
           setState(() {
-            _searchResults = uniqueLocations.values.toList();
-            _isSearching = false;
+            searchResults = uniqueLocations.values.toList();
+            isSearching = false;
           });
-          debugPrint('✅ Found ${_searchResults.length} unique cities');
+          debugPrint("Found ${searchResults.length} cities");
         }
       }
     } catch (e) {
-      debugPrint('❌ Search error: $e');
+      debugPrint("Error: $e");
       setState(() {
-        _errorMessage = 'Search failed. Please try again.';
-        _isSearching = false;
-        _searchResults = [];
+        errorMessage = 'Something went wrong. Try again.';
+        isSearching = false;
       });
     }
   }
 
-  void _loadWeatherForLocation(LocationEntity location) {
+  // When user selects a city from search results
+  void selectCity(LocationEntity location) {
     setState(() {
-      _showSearch = false;
-      _currentLocation = location;
+      showSearchScreen = false;
+      selectedLocation = location;
     });
   }
 
-  String _getLocationDisplayName(LocationEntity location) {
-    // Build a clear, unique name
+  // Create display name for location (e.g., "New York, NY, USA")
+  String getLocationName(LocationEntity location) {
     final parts = <String>[location.name];
 
     if (location.state != null && location.state!.isNotEmpty) {
@@ -123,7 +125,6 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
     }
 
     parts.add(location.country);
-
     return parts.join(', ');
   }
 
@@ -138,13 +139,13 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
         ),
       ],
       child: Scaffold(
-        extendBodyBehindAppBar: !_showSearch,
+        extendBodyBehindAppBar: !showSearchScreen,
         appBar: AppBar(
-          backgroundColor: _showSearch
+          backgroundColor: showSearchScreen
               ? const Color(0xFF2d5016)
               : Colors.transparent,
           title: Text(
-            _showSearch ? 'Search Any City' : 'Weather',
+            showSearchScreen ? 'Search City' : 'Weather Info',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -155,30 +156,32 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
-            if (!_showSearch) ...[
+            // Show these buttons only on weather screen
+            if (!showSearchScreen) ...[
+              // Search button
               IconButton(
                 icon: const Icon(Icons.search, color: Colors.white),
                 onPressed: () {
                   setState(() {
-                    _showSearch = true;
-                    _searchController.clear();
-                    _searchResults = [];
+                    showSearchScreen = true;
+                    searchController.clear();
+                    searchResults.clear();
                   });
                 },
-                tooltip: 'Search again',
               ),
+
+              // Favorites list button
               IconButton(
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const FavoritesPage(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const FavoritesPage()),
                   );
                 },
                 icon: const Icon(Icons.list, color: Colors.white),
-                tooltip: 'View Favorites',
               ),
+
+              // Favorite/Unfavorite button
               BlocBuilder<WeatherBloc, WeatherState>(
                 builder: (context, weatherState) {
                   return BlocBuilder<FavoritesBloc, FavoritesState>(
@@ -193,7 +196,7 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
 
                         if (favState is FavoritesLoaded) {
                           isFavorite = favState.favorites.any(
-                            (fav) => fav.cityName == cityName,
+                            (f) => f.cityName == cityName,
                           );
                         }
                       }
@@ -201,20 +204,21 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                       return IconButton(
                         onPressed:
                             weatherState is WeatherLoaded &&
-                                cityName != null &&
-                                _currentLocation != null
+                                selectedLocation != null
                             ? () {
                                 if (isFavorite) {
+                                  // Remove from favorites
                                   context.read<FavoritesBloc>().add(
                                     RemoveFavorite(cityName!),
                                   );
                                 } else {
+                                  // Add to favorites
                                   context.read<FavoritesBloc>().add(
                                     AddFavorite(
                                       cityName: cityName!,
                                       country: country ?? '',
-                                      latitude: _currentLocation!.latitude,
-                                      longitude: _currentLocation!.longitude,
+                                      latitude: selectedLocation!.latitude,
+                                      longitude: selectedLocation!.longitude,
                                     ),
                                   );
                                 }
@@ -224,37 +228,36 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                           isFavorite ? Icons.favorite : Icons.favorite_border,
                           color: isFavorite ? Colors.red : Colors.white,
                         ),
-                        tooltip: isFavorite
-                            ? 'Remove from favorites'
-                            : 'Add to favorites',
                       );
                     },
                   );
                 },
               ),
+
+              // Refresh button
               IconButton(
                 onPressed: () {
-                  if (_currentLocation != null) {
+                  if (selectedLocation != null) {
                     context.read<WeatherBloc>().add(
                       GetWeatherForCoordinates(
-                        _currentLocation!.latitude,
-                        _currentLocation!.longitude,
+                        selectedLocation!.latitude,
+                        selectedLocation!.longitude,
                       ),
                     );
                   }
                 },
                 icon: const Icon(Icons.refresh, color: Colors.white),
-                tooltip: 'Refresh Weather',
               ),
             ],
           ],
         ),
-        body: _showSearch ? _buildSearchView() : _buildWeatherView(),
+        body: showSearchScreen ? buildSearchScreen() : buildWeatherScreen(),
       ),
     );
   }
 
-  Widget _buildSearchView() {
+  // Build the search screen
+  Widget buildSearchScreen() {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -265,48 +268,49 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
       ),
       child: Column(
         children: [
+          // Search bar
           Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF90ee90).withValues(alpha: 0.3),
-                width: 2,
-              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.public, color: Color(0xFF90ee90), size: 24),
-                const SizedBox(width: 12),
+                const Icon(Icons.public, color: Color(0xFF90ee90)),
+                const SizedBox(width: 8),
+
                 Expanded(
                   child: TextField(
-                    controller: _searchController,
+                    controller: searchController,
                     autofocus: true,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: const TextStyle(color: Colors.white),
                     decoration: const InputDecoration(
-                      hintText: 'Search any city worldwide...',
+                      hintText: 'Search for a city...',
                       hintStyle: TextStyle(color: Colors.white54),
                       border: InputBorder.none,
                     ),
-                    onChanged: (query) {
+                    onChanged: (text) {
+                      // Wait 500ms before searching (debouncing)
                       Future.delayed(const Duration(milliseconds: 500), () {
-                        if (_searchController.text == query) {
-                          _searchCities(query);
+                        if (searchController.text == text) {
+                          searchForCities(text);
                         }
                       });
                     },
                   ),
                 ),
-                if (_searchController.text.isNotEmpty)
+
+                // Clear button
+                if (searchController.text.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.clear, color: Colors.white70),
                     onPressed: () {
-                      _searchController.clear();
+                      searchController.clear();
                       setState(() {
-                        _searchResults = [];
-                        _errorMessage = null;
+                        searchResults = [];
+                        errorMessage = null;
                       });
                     },
                   ),
@@ -314,229 +318,83 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
             ),
           ),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              _searchController.text.isEmpty
-                  ? 'Type at least 2 characters to search'
-                  : _isSearching
-                  ? 'Searching...'
-                  : _searchResults.isNotEmpty
-                  ? 'Found ${_searchResults.length} ${_searchResults.length == 1 ? 'location' : 'locations'}'
-                  : '',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
+          // Results area
           Expanded(
-            child: Builder(
-              builder: (builderContext) {
-                if (_searchController.text.isEmpty) {
-                  return _buildInitialState();
-                } else if (_isSearching) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF90ee90)),
-                  );
-                } else if (_errorMessage != null) {
-                  return _buildErrorState(_errorMessage!);
-                } else if (_searchResults.isEmpty) {
-                  return _buildNoResults();
-                } else {
-                  return _buildResultsList(builderContext);
-                }
-              },
-            ),
+            child: isSearching
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.lightGreen),
+                  )
+                : errorMessage != null
+                ? buildErrorMessage(errorMessage!)
+                : searchResults.isEmpty
+                ? buildInitialMessage()
+                : buildSearchResultsList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInitialState() {
+  // Show initial message
+  Widget buildInitialMessage() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.travel_explore,
-              size: 100,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Search Any City Worldwide',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Type the name of any city, state, or country',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Try: Paris, New York, Tokyo, Mumbai, Cairo...',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white.withValues(alpha: 0.5),
-                fontStyle: FontStyle.italic,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+      child: Text(
+        "Type a city name to start searching",
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.7),
+          fontSize: 16,
         ),
       ),
     );
   }
 
-  Widget _buildNoResults() {
+  // Show error message
+  Widget buildErrorMessage(String message) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.location_off,
-              size: 80,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'No cities found',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Try a different spelling or city name',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+      child: Text(
+        message,
+        style: const TextStyle(color: Colors.redAccent, fontSize: 16),
       ),
     );
   }
 
-  Widget _buildErrorState(String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 80, color: Colors.redAccent),
-            const SizedBox(height: 24),
-            const Text(
-              'Search Error',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white.withValues(alpha: 0.8),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultsList(BuildContext builderContext) {
+  // Show list of search results
+  Widget buildSearchResultsList() {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _searchResults.length,
+      padding: const EdgeInsets.all(16),
+      itemCount: searchResults.length,
       itemBuilder: (context, index) {
-        final location = _searchResults[index];
-        final displayName = _getLocationDisplayName(location);
+        final location = searchResults[index];
+        final displayName = getLocationName(location);
 
         return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          color: const Color(0xFF1a3409).withValues(alpha: 0.9),
+          color: const Color(0xFF1a3409).withValues(alpha: 0.8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: const Color(0xFF90ee90).withValues(alpha: 0.3),
-              width: 1.5,
-            ),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            leading: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF90ee90).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.location_on,
-                color: Color(0xFF90ee90),
-                size: 26,
-              ),
-            ),
             title: Text(
               displayName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+              style: const TextStyle(color: Colors.white),
+            ),
+            subtitle: Text(
+              '${location.latitude.toStringAsFixed(2)}, ${location.longitude.toStringAsFixed(2)}',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 12,
               ),
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '${location.latitude.toStringAsFixed(4)}°, ${location.longitude.toStringAsFixed(4)}°',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-            trailing: Icon(
+            trailing: const Icon(
               Icons.arrow_forward_ios,
-              color: const Color(0xFF90ee90).withValues(alpha: 0.7),
-              size: 18,
+              color: Colors.white70,
+              size: 16,
             ),
             onTap: () {
-              debugPrint('🎯 Loading weather for: $displayName');
-              debugPrint(
-                '📍 Coordinates: ${location.latitude}, ${location.longitude}',
-              );
-              _loadWeatherForLocation(location);
-              builderContext.read<WeatherBloc>().add(
+              debugPrint("Selected $displayName");
+              selectCity(location);
+
+              // Load weather for this location
+              context.read<WeatherBloc>().add(
                 GetWeatherForCoordinates(location.latitude, location.longitude),
               );
             },
@@ -546,15 +404,19 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
     );
   }
 
-  Widget _buildWeatherView() {
+  // Build the weather screen
+  Widget buildWeatherScreen() {
     return BlocBuilder<WeatherBloc, WeatherState>(
       builder: (context, state) {
+        // Loading state
         if (state is WeatherLoading) {
           return const WeatherBackground(
             weatherCondition: 'default',
             child: LoadingWidget(message: 'Loading weather...'),
           );
-        } else if (state is WeatherLoaded) {
+        }
+        // Success state - show weather
+        else if (state is WeatherLoaded) {
           return WeatherBackground(
             weatherCondition: state.currentWeather.mainWeather,
             child: SafeArea(
@@ -562,27 +424,32 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
                 child: Column(
                   children: [
                     CurrentWeatherCard(weather: state.currentWeather),
+
                     if (state.forecast != null)
                       ForecastList(forecast: state.forecast!),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
           );
-        } else if (state is WeatherError) {
+        }
+        // Error state
+        else if (state is WeatherError) {
           return WeatherBackground(
             weatherCondition: 'default',
             child: ErrorDisplayWidget(
               message: state.message,
               onRetry: () {
                 setState(() {
-                  _showSearch = true;
+                  showSearchScreen = true;
                 });
               },
             ),
           );
         }
+
         return const SizedBox();
       },
     );
@@ -590,7 +457,7 @@ class _SimpleCitySearchPageState extends State<SimpleCitySearchPage> {
 
   @override
   void dispose() {
-    _searchController.dispose();
+    searchController.dispose();
     super.dispose();
   }
 }

@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/forecast_entity.dart';
 import '../../domain/entities/weather_entity.dart';
 
+// Base class for all weather-related states.
 abstract class WeatherState extends Equatable {
   const WeatherState();
 
@@ -9,14 +10,17 @@ abstract class WeatherState extends Equatable {
   List<Object?> get props => [];
 }
 
+// Initial state before any weather data is loaded.
 class WeatherInitial extends WeatherState {
   const WeatherInitial();
 }
 
+// Indicates that weather data is currently being fetched.
 class WeatherLoading extends WeatherState {
   const WeatherLoading();
 }
 
+// Represents successfully loaded weather and optional forecast data.
 class WeatherLoaded extends WeatherState {
   final WeatherEntity currentWeather;
   final ForecastEntity? forecast;
@@ -26,6 +30,7 @@ class WeatherLoaded extends WeatherState {
   @override
   List<Object?> get props => [currentWeather, forecast];
 
+  // Creates a new WeatherLoaded instance with updated values.
   WeatherLoaded copyWith({
     WeatherEntity? currentWeather,
     ForecastEntity? forecast,
@@ -37,6 +42,7 @@ class WeatherLoaded extends WeatherState {
   }
 }
 
+// Represents an error state during weather data fetching.
 class WeatherError extends WeatherState {
   final String message;
 
@@ -46,7 +52,7 @@ class WeatherError extends WeatherState {
   List<Object> get props => [message];
 }
 
-// NEW STATE: Hourly forecast loaded
+// Represents successfully loaded hourly forecast data for a specific date.
 class HourlyForecastLoaded extends WeatherState {
   final DateTime date;
   final List<WeatherEntity> hourlyForecasts;

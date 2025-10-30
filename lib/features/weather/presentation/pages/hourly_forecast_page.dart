@@ -18,10 +18,11 @@ class HourlyForecastPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get main weather condition for background
-    final mainWeather = hourlyForecasts.isNotEmpty
-        ? hourlyForecasts.first.mainWeather
-        : 'Clear';
+    // Get weather condition for the background
+    String weatherCondition = 'Clear';
+    if (hourlyForecasts.isNotEmpty) {
+      weatherCondition = hourlyForecasts.first.mainWeather;
+    }
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -51,17 +52,18 @@ class HourlyForecastPage extends StatelessWidget {
         ),
       ),
       body: WeatherBackground(
-        weatherCondition: mainWeather,
+        weatherCondition: weatherCondition,
         child: SafeArea(
           child: hourlyForecasts.isEmpty
-              ? _buildEmptyState()
-              : _buildHourlyList(),
+              ? buildEmptyMessage()
+              : buildHourlyForecastList(),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  // Show message when there's no data
+  Widget buildEmptyMessage() {
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -81,21 +83,29 @@ class HourlyForecastPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHourlyList() {
+  // Build the list of hourly forecasts
+  Widget buildHourlyForecastList() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: hourlyForecasts.length,
       itemBuilder: (context, index) {
         final forecast = hourlyForecasts[index];
-        return _buildHourlyCard(forecast, index == 0);
+        bool isFirstItem = (index == 0);
+        return buildForecastCard(forecast, isFirstItem);
       },
     );
   }
 
-  Widget _buildHourlyCard(WeatherEntity forecast, bool isFirst) {
-    // ignore: unused_local_variable
-    final time = DateFormat('HH:mm').format(forecast.dateTime);
+  // Build individual forecast card
+  Widget buildForecastCard(WeatherEntity forecast, bool isFirst) {
+    // Format the time
     final hour = DateFormat('ha').format(forecast.dateTime);
+
+    // Capitalize first letter of each word in description
+    String description = forecast.description
+        .split(' ')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -112,7 +122,7 @@ class HourlyForecastPage extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Time header
+          // Time header with "Next" badge
           Row(
             children: [
               Icon(
@@ -173,12 +183,7 @@ class HourlyForecastPage extends StatelessWidget {
                     WeatherIcon(iconCode: forecast.icon, size: 60),
                     const SizedBox(height: 8),
                     Text(
-                      forecast.description
-                          .split(' ')
-                          .map(
-                            (word) => word[0].toUpperCase() + word.substring(1),
-                          )
-                          .join(' '),
+                      description,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -237,25 +242,25 @@ class HourlyForecastPage extends StatelessWidget {
 
               const SizedBox(width: 16),
 
-              // Additional details
+              // Weather details (humidity, wind, pressure)
               Expanded(
                 flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDetailRow(
+                    buildWeatherDetail(
                       Icons.water_drop,
                       'Humidity',
                       '${forecast.humidity}%',
                     ),
                     const SizedBox(height: 8),
-                    _buildDetailRow(
+                    buildWeatherDetail(
                       Icons.air,
                       'Wind',
                       '${forecast.windSpeed.toStringAsFixed(1)} m/s',
                     ),
                     const SizedBox(height: 8),
-                    _buildDetailRow(
+                    buildWeatherDetail(
                       Icons.compress,
                       'Pressure',
                       '${forecast.pressure} hPa',
@@ -270,7 +275,8 @@ class HourlyForecastPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
+  // Build small weather detail row
+  Widget buildWeatherDetail(IconData icon, String label, String value) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
